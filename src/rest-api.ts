@@ -1,13 +1,33 @@
 import { Client, TextChannel, ChannelType } from "discord.js";
 import express from "express";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import { Request, Response } from "express";
-import { createTicket, getTicket } from "./firebase";
+import { createTicket, getTicket, getTicketById } from "./firebase";
 import cors from "cors";
 
 export function createRestApi(client: Client) {
   const app = express();
+  const server = createServer(app);
+  const io = new Server(server, {});
   app.use(express.json());
   app.use(cors());
+
+  io.on("connection", socket => {
+    socket.on("join", (room) => {
+      socket.join(room)
+    })
+  })
+
+  client.on("messageCreate", async message => {
+    const ticket = await getTicketById(message.channel.id);
+    if (!ticket) return;
+
+    io.to(ticket.secret).emit("message", {
+      bot: message.author.bot,
+      ...message,
+    });
+  })
 
   app.get("/messages", async (req, res) => {
     const thread = await getThread(req, res);
@@ -37,7 +57,7 @@ export function createRestApi(client: Client) {
 
   app.post("/new", async (req, res) => {
     const { username } = req.body;
-    if ( !username) {
+    if (!username) {
       return res.status(400).json({ error: "Missing text or username" });
     }
     const channel = await client.guilds.cache
@@ -74,5 +94,6 @@ export function createRestApi(client: Client) {
     }
     return thread;
   }
-  return app;
+
+  return server;
 }

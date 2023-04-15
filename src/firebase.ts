@@ -51,3 +51,17 @@ export async function getTicket(secret: string) {
 
   return ticket;
 }
+
+export async function getTicketById(id: string) {
+  const tickets = await getDocs(query(collection(db, "tickets")));
+
+  let ticket = null;
+  for (const doc of tickets.docs) {
+    if (doc.data().threadId === id) {
+      ticket = doc.data();
+      break;
+    }
+  }
+
+  return ticket;
+}
